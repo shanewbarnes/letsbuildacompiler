@@ -9,12 +9,12 @@
 // program Cradle
 
 //--------------------------------------------------------------
-// Constant Definitions
+// Constant Declarations
 
 const char TAB = '\t';
 
 //--------------------------------------------------------------
-// Variable Definitions
+// Variable Declarations
 
 char Look;
 char buf[MAX_BUF];
@@ -50,7 +50,7 @@ void Abort(char *s)
 
 void Expected(char *s)
 {
-	snprintf(buf, MAX_BUF, "%s Expected", s);
+	snprintf(buf, MAX_BUF, "%s Expected", s); 
 	Abort(buf); 
 }
 
@@ -63,7 +63,7 @@ void Match(char *x)
 		GetChar();
 	} else {
 		snprintf(buf, MAX_BUF, "\"%s\"", x); 
-		Expected(buf);
+		Expected(x);
 	}
 }
 
@@ -119,9 +119,112 @@ void Init()
 }	
 
 //--------------------------------------------------------------
+// Parse and Translate a Math Factor
+
+void Factor()
+{
+	if (Look == '(') {
+		Match("(");
+		Expression();
+		Match(")");
+	} else {
+		snprintf(buf, MAX_BUF, "MOVE #%c,D0", GetNum());
+		EmitLn(buf);
+	}
+}
+
+//--------------------------------------------------------------
+// Parse and Translate an Expression
+void Expression() 
+{
+	if (IsAddop(Look)) {
+		EmitLn("CLR D0");
+	} else {
+		Term();
+	}
+	while (IsAddop(Look)) {
+		EmitLn("MOVE D0,-(SP)");
+		switch (Look) {
+			case '+':
+				Add();
+				break;
+			case '-':
+				Subtract();
+				break;
+			default:
+				Expected("Addop");
+				break;
+		}
+	}
+}
+
+//--------------------------------------------------------------
+// Recognize and Translate an Add
+
+void Add()
+{
+	Match("+");
+	Term();
+	EmitLn("ADD (SP)+,D0");
+}
+
+//--------------------------------------------------------------
+// Recognize and Translate a Subtract
+
+void Subtract()
+{
+	Match("-");
+	Term();
+	EmitLn("SUB (SP)+,D0");
+	EmitLn("NEG D0");
+}
+
+//--------------------------------------------------------------
+// Recognize and Translate a Multiply
+
+void Multiply()
+{
+	Match("*");
+	Factor();
+	EmitLn("MULS (SP)+,D0");
+}
+
+//--------------------------------------------------------------
+// Recognize and Translate a Divide
+
+void Divide()
+{
+	Match("/");
+	Factor();
+	EmitLn("MOVE (SP)+,D1");
+	EmitLn("DIVS D1,D0");
+}
+
+//--------------------------------------------------------------
+// Parse ad Translate a Math Term
+void Term()
+{
+	Factor();
+	while (Look == '*' || Look == '/') {
+		EmitLn("MOVE D0,-(SP)");
+		switch (Look) {
+			case '*':
+				Multiply();
+				break;
+			case '/':
+				Divide();
+				break;
+			default:
+				Expected("Mulop");
+				break;
+		}
+	}
+}
+
+//--------------------------------------------------------------
 // Recognize an Addop
 
-int IsAddop(char c)
+int IsAddop(char c) 
 {
 	if (c == '+' || c == '-') {
 		return 1;
@@ -129,3 +232,5 @@ int IsAddop(char c)
 		return 0;
 	}
 }
+
+//--------------------------------------------------------------

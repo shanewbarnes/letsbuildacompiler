@@ -68,8 +68,43 @@ void EmitLn(char *);
 void Init();
 
 //--------------------------------------------------------------
+// Parse and Translate a Math Term
+
+void Term();
+
+//--------------------------------------------------------------
+// Parse and Translate an Expression
+
+void Expression();
+
+//--------------------------------------------------------------
+// Recognize and Translate an Add
+
+void Add();
+
+//--------------------------------------------------------------
+// Recognize and Translate a Subtract
+
+void Subtract();
+
+//--------------------------------------------------------------
+// Recognize and Translate a Multiply
+
+void Multiply();
+
+//--------------------------------------------------------------
+// Recognize and Translate a Divide
+
+void Divide();
+
+//--------------------------------------------------------------
+// Parse and Translate a Math Factor
+
+void Factor();
+
+//--------------------------------------------------------------
 // Recognize an Addop
 
-int Addop(char);
+int IsAddop(char);
 
 #endif
