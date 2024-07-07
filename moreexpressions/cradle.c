@@ -12,6 +12,7 @@
 // Constant Declarations
 
 const char TAB = '\t';
+const char CR = '\n';
 
 //--------------------------------------------------------------
 // Variable Declarations
@@ -127,6 +128,8 @@ void Factor()
 		Match("(");
 		Expression();
 		Match(")");
+	} else if (isalpha(Look)) {
+		Ident();
 	} else {
 		snprintf(buf, MAX_BUF, "MOVE #%c,D0", GetNum());
 		EmitLn(buf);
@@ -134,7 +137,25 @@ void Factor()
 }
 
 //--------------------------------------------------------------
+// Parse and Translate an Identifier
+
+void Ident()
+{
+	char Name = GetName();
+	if (Look == '(') {
+		Match("(");
+		Match(")");
+		snprintf(buf, MAX_BUF, "BSR %c", Name);
+		EmitLn(buf);
+	} else {
+		snprintf(buf, MAX_BUF, "MOVE %c,(PC),D0", Name);
+		EmitLn(buf);
+	}
+}
+
+//--------------------------------------------------------------
 // Parse and Translate an Expression
+
 void Expression() 
 {
 	if (IsAddop(Look)) {
@@ -151,11 +172,21 @@ void Expression()
 			case '-':
 				Subtract();
 				break;
-			default:
-				Expected("Addop");
-				break;
 		}
 	}
+}
+
+//--------------------------------------------------------------
+// Parse and Translate an Assignment Statement
+
+void Assignment()
+{
+	char Name = GetName();
+	Match("=");
+	Expression();
+	snprintf(buf, MAX_BUF, "LEA %c(PC),A0", Name);
+	EmitLn(buf);
+	EmitLn("MOVE D0,(A0)");
 }
 
 //--------------------------------------------------------------
@@ -214,9 +245,6 @@ void Term()
 				break;
 			case '/':
 				Divide();
-				break;
-			default:
-				Expected("Mulop");
 				break;
 		}
 	}

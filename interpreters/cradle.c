@@ -9,15 +9,17 @@
 // program Cradle
 
 //--------------------------------------------------------------
-// Constant Declarations
+// Constant Definitions
 
 const char TAB = '\t';
+const char CR = '\n';
 
 //--------------------------------------------------------------
-// Variable Declarations
+// Variable Definitions
 
 char Look;
 char buf[MAX_BUF];
+int Table[LETTERS];
 
 //--------------------------------------------------------------
 // Read New Character From Input Stream
@@ -50,7 +52,7 @@ void Abort(char *s)
 
 void Expected(char *s)
 {
-	snprintf(buf, MAX_BUF, "%s Expected", s); 
+	snprintf(buf, MAX_BUF, "%s Expected", s);
 	Abort(buf); 
 }
 
@@ -63,7 +65,17 @@ void Match(char *x)
 		GetChar();
 	} else {
 		snprintf(buf, MAX_BUF, "\"%s\"", x); 
-		Expected(x);
+		Expected(buf);
+	}
+}
+
+//--------------------------------------------------------------
+// Recognize and Skip Over a Newline
+
+void NewLine()
+{
+	if (Look == CR) {
+		GetChar();
 	}
 }
 
@@ -76,19 +88,6 @@ char GetName()
 		Expected("Name");
 	}
 	char look = toupper(Look);
-	GetChar();
-	return look;
-}
-
-//--------------------------------------------------------------
-// Get a Number
-
-char GetNum()
-{
-	if (!isdigit(Look)) {
-		Expected("Integer");
-	}
-	char look = Look;
 	GetChar();
 	return look;
 }
@@ -116,122 +115,138 @@ void EmitLn(char *s)
 void Init()
 {
 	GetChar();
+	InitTable();
 }	
-
-//--------------------------------------------------------------
-// Parse and Translate a Math Factor
-
-void Factor()
-{
-	if (Look == '(') {
-		Match("(");
-		Expression();
-		Match(")");
-	} else {
-		snprintf(buf, MAX_BUF, "MOVE #%c,D0", GetNum());
-		EmitLn(buf);
-	}
-}
-
-//--------------------------------------------------------------
-// Parse and Translate an Expression
-void Expression() 
-{
-	if (IsAddop(Look)) {
-		EmitLn("CLR D0");
-	} else {
-		Term();
-	}
-	while (IsAddop(Look)) {
-		EmitLn("MOVE D0,-(SP)");
-		switch (Look) {
-			case '+':
-				Add();
-				break;
-			case '-':
-				Subtract();
-				break;
-			default:
-				Expected("Addop");
-				break;
-		}
-	}
-}
-
-//--------------------------------------------------------------
-// Recognize and Translate an Add
-
-void Add()
-{
-	Match("+");
-	Term();
-	EmitLn("ADD (SP)+,D0");
-}
-
-//--------------------------------------------------------------
-// Recognize and Translate a Subtract
-
-void Subtract()
-{
-	Match("-");
-	Term();
-	EmitLn("SUB (SP)+,D0");
-	EmitLn("NEG D0");
-}
-
-//--------------------------------------------------------------
-// Recognize and Translate a Multiply
-
-void Multiply()
-{
-	Match("*");
-	Factor();
-	EmitLn("MULS (SP)+,D0");
-}
-
-//--------------------------------------------------------------
-// Recognize and Translate a Divide
-
-void Divide()
-{
-	Match("/");
-	Factor();
-	EmitLn("MOVE (SP)+,D1");
-	EmitLn("EXS.L D0");
-	EmitLn("DIVS D1,D0");
-}
-
-//--------------------------------------------------------------
-// Parse ad Translate a Math Term
-void Term()
-{
-	Factor();
-	while (Look == '*' || Look == '/') {
-		EmitLn("MOVE D0,-(SP)");
-		switch (Look) {
-			case '*':
-				Multiply();
-				break;
-			case '/':
-				Divide();
-				break;
-			default:
-				Expected("Mulop");
-				break;
-		}
-	}
-}
 
 //--------------------------------------------------------------
 // Recognize an Addop
 
-int IsAddop(char c) 
+int IsAddop(char c)
 {
 	if (c == '+' || c == '-') {
 		return 1;
 	} else {
 		return 0;
 	}
+}
+
+//--------------------------------------------------------------
+// Get a Number
+
+int GetNum()
+{
+	int Value = 0;
+	if (!isdigit(Look)) {
+		Expected("Integer");
+	}
+	while (isdigit(Look)) {
+		Value = 10 * Value + Look - '0';
+		GetChar();
+	}
+	return Value;
+}
+  
+//--------------------------------------------------------------
+// Parse and Translate an Expression
+
+int Expression()
+{
+	int Value;
+	if (IsAddop(Look)) {
+		Value = 0;
+	} else {
+		Value = Term();
+	}
+	while (IsAddop(Look)) {
+		switch (Look) {
+			case '+':
+				Match("+");
+				Value += Term();
+				break;
+			case '-':
+				Match("-");
+				Value -= Term();
+				break;
+		}
+	}
+	return Value; 
+}
+
+//--------------------------------------------------------------
+// Parse and Translate an Math Term
+
+int Term()
+{
+	int Value = Factor();
+	while (Look == '*' || Look == '/') {
+		switch (Look) {
+			case '*':
+				Match("*");
+				Value *= Factor();
+				break;
+			case '/':
+				Match("/");
+				Value /= Factor();
+				break;
+		}
+	}
+	return Value;
+}
+
+//--------------------------------------------------------------
+// Parse and Translate a Math Factor
+
+int Factor()
+{
+	int factor;
+	if (Look == '(') {
+		Match("(");
+		factor = Expression();
+		Match(")");
+	} else if (isalpha(Look)) {
+		factor = Table[GetName() - 'A'];
+	} else {
+		factor = GetNum();
+	}
+	return factor;
+}
+
+//--------------------------------------------------------------
+// Initialize the Variable Area
+
+void InitTable()
+{
+	for (int i = 0; i < LETTERS; i++) {
+		Table[i] = 0;
+	}
+}
+
+//--------------------------------------------------------------
+// Parse and Translate an Assignment Statement
+
+void Assignment()
+{
+	char Name = GetName();
+	Match("=");
+	Table[Name - 'A'] = Expression();
+}
+
+//--------------------------------------------------------------
+// Input Routine
+
+void Input()
+{
+	Match("?");
+	scanf("%d", &Table[GetName() - 'A']);
+}
+
+//--------------------------------------------------------------
+// Output Routine
+
+void Output()
+{
+	Match("!");
+	printf("%d\n", Table[GetName() - 'A']);
 }
 
 //--------------------------------------------------------------

@@ -12,6 +12,7 @@
 // Constant Declarations
 
 const char TAB = '\t';
+const char CR = '\n';
 
 //--------------------------------------------------------------
 // Variable Declarations
@@ -59,38 +60,51 @@ void Expected(char *s)
 
 void Match(char *x)
 {
-	if (Look == *x) {
-		GetChar();
-	} else {
+	if (Look != *x) {
 		snprintf(buf, MAX_BUF, "\"%s\"", x); 
 		Expected(x);
+	} else {
+		GetChar();
+		SkipWhite();
 	}
 }
 
 //--------------------------------------------------------------
 // Get an Identifier
 
-char GetName()
+char *GetName()
 {
+	char *Token = (char *) malloc(MAX_EXPR * sizeof(char));
+	int i = 0;
 	if (!isalpha(Look)) {
 		Expected("Name");
 	}
-	char look = toupper(Look);
-	GetChar();
-	return look;
+	while (isalnum(Look) && i < MAX_EXPR) {
+		Token[i++] = toupper(Look);
+		GetChar();
+	}
+	Token[i] = '\0';
+	SkipWhite();
+	return Token;
 }
 
 //--------------------------------------------------------------
 // Get a Number
 
-char GetNum()
+char *GetNum()
 {
+	char *Value = (char *) malloc(MAX_EXPR * sizeof(char));
+	int i = 0;
 	if (!isdigit(Look)) {
 		Expected("Integer");
 	}
-	char look = Look;
-	GetChar();
-	return look;
+	while (isdigit(Look) && i < MAX_EXPR) {
+		Value[i++] = Look;
+		GetChar();
+	}
+	Value[i] = '\0';
+	SkipWhite();
+	return Value;
 }
 
 //--------------------------------------------------------------
@@ -116,6 +130,7 @@ void EmitLn(char *s)
 void Init()
 {
 	GetChar();
+	SkipWhite();
 }	
 
 //--------------------------------------------------------------
@@ -127,14 +142,34 @@ void Factor()
 		Match("(");
 		Expression();
 		Match(")");
+	} else if (isalpha(Look)) {
+		Ident();
 	} else {
-		snprintf(buf, MAX_BUF, "MOVE #%c,D0", GetNum());
+		snprintf(buf, MAX_BUF, "MOVE #%s,D0", GetNum());
+		EmitLn(buf);
+	}
+}
+
+//--------------------------------------------------------------
+// Parse and Translate an Identifier
+
+void Ident()
+{
+	char *Name = GetName();
+	if (Look == '(') {
+		Match("(");
+		Match(")");
+		snprintf(buf, MAX_BUF, "BSR %s", Name);
+		EmitLn(buf);
+	} else {
+		snprintf(buf, MAX_BUF, "MOVE %s,(PC),D0", Name);
 		EmitLn(buf);
 	}
 }
 
 //--------------------------------------------------------------
 // Parse and Translate an Expression
+
 void Expression() 
 {
 	if (IsAddop(Look)) {
@@ -151,11 +186,21 @@ void Expression()
 			case '-':
 				Subtract();
 				break;
-			default:
-				Expected("Addop");
-				break;
 		}
 	}
+}
+
+//--------------------------------------------------------------
+// Parse and Translate an Assignment Statement
+
+void Assignment()
+{
+	char *Name = GetName();
+	Match("=");
+	Expression();
+	snprintf(buf, MAX_BUF, "LEA %s(PC),A0", Name);
+	EmitLn(buf);
+	EmitLn("MOVE D0,(A0)");
 }
 
 //--------------------------------------------------------------
@@ -215,9 +260,6 @@ void Term()
 			case '/':
 				Divide();
 				break;
-			default:
-				Expected("Mulop");
-				break;
 		}
 	}
 }
@@ -234,4 +276,24 @@ int IsAddop(char c)
 	}
 }
 
+//--------------------------------------------------------------
+// Recognize White Space
+
+int IsWhite(char c) 
+{
+	if (c == ' ' || c == '\t') {
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
+//--------------------------------------------------------------
+// Skip Over Leading White Space 
+
+void SkipWhite() {
+	while (IsWhite(Look)) {
+		GetChar();
+	}
+}
 //--------------------------------------------------------------
