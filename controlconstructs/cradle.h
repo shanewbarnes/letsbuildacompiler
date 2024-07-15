@@ -115,9 +115,24 @@ void DoWhile();
 void DoLoop();
 
 //--------------------------------------------------------------
-// Recognize and Translate an Repeat Construct
+// Recognize and Translate an REPEAT Construct
 
 void DoRepeat();
+
+//--------------------------------------------------------------
+// Recognize and Translate an FOR Construct
+
+void DoFor();
+
+//--------------------------------------------------------------
+// Recognize and Translate an DO Construct
+
+void DoDo();
+
+//--------------------------------------------------------------
+// Parse and Translate an Expression
+
+void Expression();
 
 //--------------------------------------------------------------
 // Parse and Translate a Boolean Condition
