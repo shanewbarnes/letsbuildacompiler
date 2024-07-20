@@ -50,8 +50,9 @@ void Abort(char *s)
 
 void Expected(char *s)
 {
-	snprintf(buf, MAX_BUF, "%s Expected", s); 
-	Abort(buf); 
+	char tmp[MAX_BUF];
+	snprintf(tmp, MAX_BUF, "%s Expected", s); 
+	Abort(tmp); 
 }
 
 //--------------------------------------------------------------
@@ -59,11 +60,12 @@ void Expected(char *s)
 
 void Match(char *x)
 {
+	char tmp[MAX_BUF];
 	if (Look == *x) {
 		GetChar();
 	} else {
-		snprintf(buf, MAX_BUF, "\"%s\"", x); 
-		Expected(x);
+		snprintf(tmp, MAX_BUF, "\"%s\"", x); 
+		Expected(tmp);
 	}
 }
 
@@ -203,6 +205,7 @@ void Divide()
 
 //--------------------------------------------------------------
 // Parse ad Translate a Math Term
+
 void Term()
 {
 	Factor();
@@ -227,11 +230,7 @@ void Term()
 
 int IsAddop(char c) 
 {
-	if (c == '+' || c == '-') {
-		return 1;
-	} else {
-		return 0;
-	}
+	return c == '+' || c == '-';
 }
 
 //--------------------------------------------------------------

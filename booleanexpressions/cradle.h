@@ -2,7 +2,6 @@
 #define CRADLE_H
 
 #define MAX_BUF 100
-#define LCOUNT_SIZE 2
 
 //--------------------------------------------------------------
 // program Cradle
@@ -11,14 +10,12 @@
 // Constant Declarations
 
 extern const char TAB;
-extern const char CR;
 
 //--------------------------------------------------------------
 // Variable Declarations
 
 extern char Look;
 extern char buf[MAX_BUF];
-extern int LCount;
 
 //--------------------------------------------------------------
 // Read New Character From Input Stream
@@ -74,66 +71,6 @@ void Init();
 // Recognize an Addop
 
 int Addop(char);
-
-//--------------------------------------------------------------
-// Recognize and Translate an "Other"
-
-void Other();
-
-//--------------------------------------------------------------
-// Parse and Translate a Program
-
-void DoProgram();
-
-//--------------------------------------------------------------
-// Recognize and Translate a Statement Block
-
-void Block();
-
-//--------------------------------------------------------------
-// Generate a Unique Label
-
-char *NewLabel();
-
-//--------------------------------------------------------------
-// Post a Label to Output
-
-void PostLabel();
-
-//--------------------------------------------------------------
-// Recognize and Translate an IF Construct
-
-void DoIf();
-
-//--------------------------------------------------------------
-// Recognize and Translate an WHILE Construct
-
-void DoWhile();
-
-//--------------------------------------------------------------
-// Recognize and Translate an LOOP Construct
-
-void DoLoop();
-
-//--------------------------------------------------------------
-// Recognize and Translate an REPEAT Construct
-
-void DoRepeat();
-
-//--------------------------------------------------------------
-// Recognize and Translate an FOR Construct
-
-void DoFor();
-
-//--------------------------------------------------------------
-// Recognize and Translate an DO Construct
-
-void DoDo();
-
-//--------------------------------------------------------------
-// Parse and Translate an Expression
-
-void Expression();
 
 //--------------------------------------------------------------
 // Recognize a Boolean Literal
@@ -254,15 +191,5 @@ void Subtract();
 // Parse and Translate an Expression
 
 void Expression();
-
-//--------------------------------------------------------------
-// Skip a CR
-
-void Fin();
-
-//--------------------------------------------------------------
-// Parse and Translate an Assignment Statment
-
-void Assignment();
 
 #endif

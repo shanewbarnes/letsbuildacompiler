@@ -12,14 +12,12 @@
 // Constant Definitions
 
 const char TAB = '\t';
-const char CR = '\n';
 
 //--------------------------------------------------------------
 // Variable Definitions
 
 char Look;
 char buf[MAX_BUF];
-int LCount;
 
 //--------------------------------------------------------------
 // Read New Character From Input Stream
@@ -120,7 +118,6 @@ void EmitLn(char *s)
 void Init()
 {
 	GetChar();
-	LCount = 0;
 }	
 
 //--------------------------------------------------------------
@@ -129,240 +126,6 @@ void Init()
 int IsAddop(char c)
 {
 	return c == '+' || c == '-';
-}
-
-//--------------------------------------------------------------
-// Recognize and Translate an "Other"
-
-void Other() 
-{
-	snprintf(buf, MAX_BUF, "%c", GetName());
-	EmitLn(buf);
-}
-
-//--------------------------------------------------------------
-// Parse and Translate a Program
-
-void DoProgram()
-{
-	Block("");
-	if (Look != 'e') {
-		Expected("End");
-	}
-	EmitLn("END");
-}
-
-//--------------------------------------------------------------
-// Generate a Unique Label
-
-char *NewLabel()
-{
-	char *S = (char *) malloc((LCOUNT_SIZE + 1) * sizeof(char));
-	snprintf(S, LCOUNT_SIZE + 1, "L%d", LCount);
-	LCount++;
-	return S;
-}
-
-//--------------------------------------------------------------
-// Post a Label To Output
-
-void PostLabel(char *L)
-{
-	printf("%s:", L);
-}
-
-//--------------------------------------------------------------
-// Recognize and Translate and IF Construct
-
-void DoIf(char *L) 
-{
-	char *L1;
-	char *L2;
-	Match("i");
-	BoolExpression();
-	L1 = NewLabel();
-	L2 = L1;
-	snprintf(buf, MAX_BUF, "BEQ %s", L1);
-	EmitLn(buf);
-	Block(L);
-	if (Look == 'l') {
-		Match("l");
-		L2 = NewLabel();
-		snprintf(buf, MAX_BUF, "BRA %s", L2);
-		EmitLn(buf);
-		PostLabel(L1);
-		Block(L);
-	}
-	Match("e");
-	PostLabel(L2);
-}	
-
-//--------------------------------------------------------------
-// Parse and Translate a WHILE Statement
-
-void DoWhile()
-{
-	char *L1;
-	char *L2;
-	Match("w");
-	L1 = NewLabel();
-	L2 = NewLabel();
-	PostLabel(L1);
-	BoolExpression();
-	snprintf(buf, MAX_BUF, "BEQ %s", L2);
-	EmitLn(buf);
-	Block(L2);
-	Match("e");
-	snprintf(buf, MAX_BUF, "BRA %s", L1);
-	EmitLn(buf);
-	PostLabel(L2);
-}
-
-//--------------------------------------------------------------
-// Parse and Translate a LOOP Statement
-
-void DoLoop()
-{
-	char *L1;
-	char *L2;
-	Match("p");
-	L1 = NewLabel();
-	L2 = NewLabel();
-	PostLabel(L1);
-	Block(L2);
-	Match("e");
-	snprintf(buf, MAX_BUF, "BRA %s", L1);
-	EmitLn(buf);
-	PostLabel(L2);
-}
-
-//--------------------------------------------------------------
-// Parse and Translate a REPEAT Statement
-
-void DoRepeat()
-{
-	char *L1;
-	char *L2;
-	Match("r");
-	L1 = NewLabel();
-	L2 = NewLabel();
-	PostLabel(L1);
-	Block(L2);
-	Match("u");
-	BoolExpression();
-	snprintf(buf, MAX_BUF, "BEQ %s", L1);
-	EmitLn(buf);
-	PostLabel(L2);
-}
-
-//--------------------------------------------------------------
-// Parse and Translate a FOR Statement
-
-void DoFor()
-{
-	char *L1;
-	char *L2;
-	char Name;
-	Match("f");
-	L1 = NewLabel();
-	L2 = NewLabel();
-	Name = GetName();
-	Match("=");
-	Expression();
-	EmitLn("SUBQ #1,D0");
-	snprintf(buf, MAX_BUF, "LEA %c(PC),A0", Name);
-	EmitLn(buf);
-	EmitLn("MOVE D0,(A0)");
-	Expression();
-	EmitLn("MOVE D0,-(SP)");
-	PostLabel(L1);
-	snprintf(buf, MAX_BUF, "LEA %c (PC),A0", Name);
-	EmitLn(buf);
-	EmitLn("MOVE (A0),D0");
-	EmitLn("ADDQ #1,D0");
-	EmitLn("MOVE D0,(A0)");
-	EmitLn("CMP (SP),D0");
-	snprintf(buf, MAX_BUF, "BGT %s", L2);
-	EmitLn(buf);
-	Block(L2);
-	Match("e");
-	snprintf(buf, MAX_BUF, "BRA %s", L1);
-	EmitLn(buf);
-	PostLabel(L2);
-	EmitLn("ADDQ #2,SP");
-}
-
-//--------------------------------------------------------------
-// Parse and Translate a DO Statement
-
-void DoDo()
-{
-	char *L1;
-	char *L2;
-	Match("d");
-	L1 = NewLabel();
-	L2 = NewLabel();
-	Expression();
-	EmitLn("SUBQ #1,D0");
-	PostLabel(L2);
-	EmitLn("MOVE D0,-(SP)");
-	Block(L2);
-	EmitLn("MOVE (SP)+,D0");
-	snprintf(buf, MAX_BUF, "DBRA D0,%s", L1);
-	EmitLn(buf);
-	PostLabel(L2);
-	EmitLn("ADDQ #2,SP");
-}
-
-//--------------------------------------------------------------
-// Parse and Translate a BREAK Statement
-
-void DoBreak(char *L)
-{
-	Match("b");
-	if (L != "") {
-		snprintf(buf, MAX_BUF, "BRA %s", L);
-		EmitLn(buf);
-	} else {
-		Abort("No loop to break from");
-	}
-}
-
-//--------------------------------------------------------------
-// Recognize and Transalate a Statement Block
-
-void Block(char *L) 
-{
-	while (Look != 'e' && Look != 'l' && Look != 'u') {
-		Fin();
-		switch (Look) {
-			case 'i':
-				DoIf(L);
-				break;
-			case 'w':
-				DoWhile();
-				break;
-			case 'p':
-				DoLoop();
-				break;
-			case 'r':
-				DoRepeat();	
-				break;
-			case 'f':
-				DoFor();
-				break;
-			case 'd':
-				DoDo();
-				break;
-			case 'b':
-				DoBreak(L);
-				break;
-			default:
-				Assignment();
-				break;
-		}
-		Fin();
-	}
 }
 
 //--------------------------------------------------------------
@@ -636,7 +399,6 @@ void Divide()
 
 //--------------------------------------------------------------
 // Parse ad Translate a Math Term
-
 void Term()
 {
 	SignedFactor();
@@ -691,27 +453,4 @@ void Expression()
 				break;
 		}
 	}
-}
-
-//--------------------------------------------------------------
-// Skip a CR
-
-void Fin() 
-{
-	if (Look == CR) {
-		GetChar();
-	}
-}
-
-//--------------------------------------------------------------
-// Parse and Translate an Assignment Statement
-
-void Assignment() 
-{
-	char Name = GetName();
-	Match("=");
-	BoolExpression();
-	snprintf(buf, MAX_BUF, "LEA %c(PC),A0", Name);
-	EmitLn(buf);
-	EmitLn("MOVE D0,(A0)");
 }
