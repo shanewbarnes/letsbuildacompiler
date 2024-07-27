@@ -13,7 +13,7 @@
 
 const char TAB = '\t';
 const char CR = '\n';
-const Symbol KWList[4] = {"IF", "ELSE", "ENDIF", "END"};
+const Symbol KWlist[4] = {"IF", "ELSE", "ENDIF", "END"};
 const char KWcode[5] = "xilee";
 
 //--------------------------------------------------------------
@@ -90,7 +90,7 @@ void GetName()
 	}
 	*c = '\0';
 	SkipWhite();
-	Token = KWcode[Lookup(&KWList, Value, 4)];
+	Token = KWcode[Lookup(&KWlist, Value, 4)];
 }
 
 //--------------------------------------------------------------

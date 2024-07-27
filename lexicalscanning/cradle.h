@@ -37,7 +37,7 @@ extern char *Value;
 //--------------------------------------------------------------
 // Definition of Keywords and Token Types
 
-extern const Symbol KWList[4];
+extern const Symbol KWlist[4];
 
 //--------------------------------------------------------------
 // Read New Character From Input Stream
