@@ -30,8 +30,8 @@ int NEntry = 0;
 //--------------------------------------------------------------
 // Definition of Keywords and Token Types
 
-Symbol KWlist[MaxEntry] = {"IF", "ELSE", "ENDIF", "WHILE", "ENDWHILE", "VAR", "BEGIN", "END", "PROGRAM"}; 
-char KWcode[NKW1] = "xilewevbep";
+Symbol KWlist[MaxEntry] = {"IF", "ELSE", "ENDIF", "WHILE", "ENDWHILE", "READ", "WRITE", "VAR", "BEGIN", "END", "PROGRAM"}; 
+char KWcode[NKW1] = "xileweRWvbep";
 
 //--------------------------------------------------------------
 // Read New Character From Input Stream
@@ -251,6 +251,12 @@ void Block()
 			case 'w':
 				DoWhile();
 				break;
+			case 'R':
+				DoRead();
+				break;
+			case 'W':
+				DoWrite();
+				break;
 			default:
 				Assignment();
 				break;
@@ -352,6 +358,7 @@ void TopDecls()
 void Header()
 {
 	printf("WARMST %cEQU $A01E\n", TAB);
+	EmitLn("LIB TINYLIB");
 }
 
 //--------------------------------------------------------------
@@ -737,34 +744,62 @@ void Equals()
 //--------------------------------------------------------------
 // Recognzie and Translate a Relational "Not Equals"
 
-void NotEquals()
+void NotEqual()
 {
-	Match("#");
+	Match(">");
 	Expression();
 	PopCompare();
 	SetNEqual();
 }
 
 //--------------------------------------------------------------
-// Recognzie and Translate a Relational "Less Than"
+// Recognzie and Translate a Relational "Less Than or Equal"
+
+void LessOrEqual()
+{
+	Match("=");
+	Expression();
+	PopCompare();
+	SetLessOrEqual();
+}
+
+//--------------------------------------------------------------
+// Recognize and Translate a Relational "Less Than"
 
 void Less()
 {
 	Match("<");
-	Expression();
-	PopCompare();
-	SetLess();
+	switch (Look) {
+		case '=':
+			LessOrEqual();
+			break;
+		case '>':
+			NotEqual();
+			break;
+		default:
+			Expression();
+			PopCompare();
+			SetLess();
+			break;
+	}
 }
-
+		
 //--------------------------------------------------------------
-// Recognzie and Translate a Relational "Greater Than"
+// Recognize and Translate a Relational "Greater Than"
 
 void Greater()
 {
 	Match(">");
-	Expression();
-	PopCompare();
-	SetGreater();
+	if (Look == '=') {
+		Match("=");
+		Expression();
+		PopCompare();
+		SetGreaterOrEqual();
+	} else {
+		Expression();
+		PopCompare();
+		SetGreater();
+	}
 }
 
 //--------------------------------------------------------------
@@ -780,7 +815,7 @@ void Relation()
 				Equals();
 				break;
 			case '#':
-				NotEquals();
+				NotEqual();
 				break;
 			case '<':
 				Less();
@@ -971,4 +1006,70 @@ void MatchString(char *x)
 	}
 }
 
+//--------------------------------------------------------------
+// Set D0 If Compare was <=
+
+void SetLessOrEqual()
+{
+	EmitLn("SGE D0");
+	EmitLn("EXT D0");
+}
+
+//--------------------------------------------------------------
+// Set D0 If Compare was >=
+
+void SetGreaterOrEqual()
+{
+	EmitLn("SLE D0");
+	EmitLn("EXT D0");
+}
+
+//--------------------------------------------------------------
+// Read Variable to Primary Register
+
+void ReadVar()
+{
+	EmitLn("BSR READ");
+	Store(Value);
+}
+
+//--------------------------------------------------------------
+// Write Variable to Primary Register
+
+void WriteVar()
+{
+	EmitLn("BSR WRITE");
+}
+
+//--------------------------------------------------------------
+// Process a Read Statement
+
+void DoRead()
+{
+	Match("(");
+	GetName();
+	ReadVar();
+	while (Look == ',') {
+		Match(",");
+		GetName();
+		ReadVar();
+	}
+	Match(")");
+}
+
+//--------------------------------------------------------------
+// Process a Write Statement
+
+void DoWrite()
+{
+	Match("(");
+	Expression();
+	WriteVar();
+	while (Look == ',') {
+		Match(",");
+		Expression();
+		WriteVar();
+	}
+	Match(")");
+}
 

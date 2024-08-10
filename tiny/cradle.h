@@ -3,8 +3,8 @@
 
 #define MAX_BUF 100
 #define LCOUNT_SIZE 2
-#define NKW 9
-#define NKW1 10
+#define NKW 11
+#define NKW1 12
 #define MaxEntry 100
 
 //--------------------------------------------------------------
@@ -356,7 +356,7 @@ void Equals();
 //--------------------------------------------------------------
 // Recognzie and Translate a Relational "Not Equals"
 
-void NotEquals();
+void NotEqual();
 
 //--------------------------------------------------------------
 // Recognzie and Translate a Relational "Less Than"
@@ -432,6 +432,26 @@ void MatchString(char *);
 // Table Lookup
 
 int Lookup(TabPtr, char *, int);
+
+//--------------------------------------------------------------
+// Set D0 If Compare was <=
+
+void SetLessOrEqual();
+
+//--------------------------------------------------------------
+// Set D0 If Compare was >=
+
+void SetGreaterOrEqual();
+
+//--------------------------------------------------------------
+// Process a Read Statement
+
+void DoRead();
+
+//--------------------------------------------------------------
+// Process a Write Statement
+
+void DoWrite();
 
 #endif
 
