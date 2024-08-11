@@ -218,7 +218,9 @@ void Prog()
 
 void Main()
 {
+	printf("FLAG\n");
 	MatchString("BEGIN");
+	printf("FLAG\n");
 	Prolog();
 	Block();
 	MatchString("END");
@@ -344,7 +346,7 @@ void TopDecls()
 				Decl();
 				break;
 			default:
-				snprintf(buf, MAX_BUF, "Unrecognized Keyword \"%s\"", Token);
+				snprintf(buf, MAX_BUF, "Unrecognized Keyword \"%c\"", Token);
 				Abort(buf);
 				break;
 		}
@@ -1000,7 +1002,7 @@ void Scan()
 
 void MatchString(char *x)
 {
-	if (strncmp(Value, x, 16) != 0) {
+	if (strncmp(Value, x, strlen(x)) != 0) {
 		snprintf(buf, MAX_BUF, "\"%s\"", x);
 		Expected(buf);
 	}
