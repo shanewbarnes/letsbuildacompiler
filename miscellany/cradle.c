@@ -25,20 +25,32 @@ char *Value = ValueArray;
 Symbol ST[MaxEntry];
 char SType[MaxEntry];
 int LCount;
-int NEntry;
+int NEntry; 
 
 //--------------------------------------------------------------
 // Definition of Keywords and Token Types
 
-Symbol KWlist[MaxEntry] = {"IF", "ELSE", "ENDIF", "WHILE", "ENDWHILE", "READ", "WRITE", "VAR", "BEGIN", "END", "PROGRAM"}; 
-char KWcode[NKW1] = "xileweRWvbep";
+Symbol KWlist[MaxEntry] = {"IF", "ELSE", "ENDIF", "WHILE", "ENDWHILE", "READ", "WRITE", "VAR", "END"}; 
+char KWcode[NKW1] = "xileweRWve";
 
 //--------------------------------------------------------------
 // Read New Character From Input Stream
 
-void GetChar()
+void GetCharX()
 {
 	Look = getchar();
+}
+
+//--------------------------------------------------------------
+// Get Character from Input Stream
+// Skip Any Comments
+
+void GetChar()
+{
+	GetCharX();
+	if (Look == '{') {
+		SkipComment();
+	}
 }
 
 //--------------------------------------------------------------
@@ -91,36 +103,63 @@ void Match(char *x)
 void GetName()
 {
 	char *c;
-	c = Value;
-	NewLine();
+	SkipWhite();
 	if (!isalpha(Look)) {
-		Expected("Name");
+		Expected("Identifier");
 	}
-	while (isalnum(Look)) {
+	Token = 'x';
+	c = Value;
+	do {
 		*c++ = toupper(Look);
 		GetChar();
-	}
+	} while (isalnum(Look));
 	*c = '\0';
-	SkipWhite();
 }
 
 //--------------------------------------------------------------
 // Get a Number
 
-int GetNum()
+void GetNum()
 {
-	NewLine();
-	int Val;
-	Val = 0;
-	if (!isdigit(Look)) {
-		Expected("Integer");
-	}
-	while (isdigit(Look)) {
-		Val = 10 * Val + Look - '0';
-		GetChar();
-	}
+	char *c;
 	SkipWhite();
-	return Val;
+	if (!isdigit(Look)) {
+		Expected("Number");
+	}
+	Token = '#';
+	c = Value;
+	do {
+		*c++ = Look;
+		GetChar();
+	} while (isdigit(Look));
+	*c = '\0';
+}
+
+//--------------------------------------------------------------
+// Get an Operator
+
+void GetOp()
+{
+	SkipWhite();
+	Token = Look;
+	Value[0] = Look;
+	Value[1] = '\0';
+	GetChar();
+}
+		 
+//--------------------------------------------------------------
+// Get the Next Input Token
+
+void Next()
+{
+	SkipWhite();
+	if (isalpha(Look)) {
+		GetName();
+	} else if (isdigit(Look)) {
+		GetNum();
+	} else {
+		GetOp();
+	}
 }
 
 //--------------------------------------------------------------
@@ -128,7 +167,7 @@ int GetNum()
 
 int IsWhite(char c)
 {
-	return c == ' ' || c == TAB;
+	return c == ' ' || c == TAB || c == '\n';
 }
 
 //--------------------------------------------------------------
@@ -173,17 +212,10 @@ void EmitLn(char *s)
 
 void Init()
 {
-	int i, j;
-	for (i = 0; i < MaxEntry; i++) {
-		for (j = 0; j < 8; j++) {
-			ST[i][j] = '\0';
-		}
-		SType[i] = ' ';
-	}
-	NEntry = 0;
 	LCount = 0;
+	NEntry = 0;
 	GetChar();
-	Scan();
+	Next();
 }	
 
 //--------------------------------------------------------------
@@ -203,37 +235,15 @@ int IsMulop(char c)
 }
 
 //--------------------------------------------------------------
-// Parse and Translate a Program
-
-void Prog()
-{
-	MatchString("PROGRAM");
-	Header();
-	TopDecls();
-	Main();
-	Match(".");
-}
-
-//--------------------------------------------------------------
-// Parse and Translate a Main Program
-
-void Main()
-{
-	MatchString("BEGIN");
-	Prolog();
-	Block();
-	MatchString("END");
-	Epilog();
-}
-
-//--------------------------------------------------------------
 // Parse and Translate an Assignment Statement
 
 void Assignment()
 {
-	char *Name;
-	Name = Value;
-	Match("=");
+	char Name[16];
+	CheckTable(Value);
+	snprintf(Name, 16, "%s", Value);
+	Next();
+	MatchString("=");
 	BoolExpression();
 	Store(Name);
 }
@@ -258,10 +268,11 @@ void Block()
 			case 'W':
 				DoWrite();
 				break;
-			default:
+			case 'x':
 				Assignment();
 				break;
 		}
+		Semi();
 		Scan();
 	}
 }
@@ -283,25 +294,16 @@ void Decl()
 //--------------------------------------------------------------
 // Allocate Storage for a Variable
 
-void Alloc(Symbol N)
+void Alloc()
 {
-	if (InTable(N)) {
-		snprintf(buf, MAX_BUF, "Duplicate Variable Name %s", N);
-		Abort(buf);
+	Next();
+	if (Token != 'x') {
+		Expected("Variable Name");
 	}
-	
-	AddEntry(N, 'v');
-	printf("%s:%cDC ", N, TAB);
-	if (Look == '=') {
-		Match("=");
-		if (Look == '-') {
-			printf("%c", Look);
-			Match("-");
-		}
-		printf("%d\n", GetNum());
-	} else {
-		printf("0\n");
-	}
+	CheckDup(Value);	
+	AddEntry(Value, 'v');
+	Allocate(Value, "0");
+	Next();
 }
 
 //--------------------------------------------------------------
@@ -309,7 +311,7 @@ void Alloc(Symbol N)
 
 int InTable(Symbol N)
 {
-	return Lookup(&ST, N, MaxEntry) != 0;
+	return Lookup(&ST, N, NEntry) != 0;
 }
 
 //--------------------------------------------------------------
@@ -318,10 +320,7 @@ int InTable(Symbol N)
 void AddEntry(Symbol N, char T)
 {
 	int i;
-	if (InTable(N)) {
-		snprintf(buf, MAX_BUF, "Duplicate Identrifier %s", N);
-		Abort(buf);
-	}
+	CheckDup(N);
 	if (NEntry == MaxEntry) {
 		Abort("Symbol Table Full");
 	}
@@ -339,17 +338,12 @@ void AddEntry(Symbol N, char T)
 void TopDecls()
 {
 	Scan();
-	while (Token != 'b') {
-		switch (Token) {
-			case 'v':
-				Decl();
-				break;
-			default:
-				snprintf(buf, MAX_BUF, "Unrecognized Keyword \"%c\"", Token);
-				Abort(buf);
-				break;
+	while (Token == 'v') {
+		Alloc();
+		while (Token == ',') {
+			Alloc();
 		}
-		Scan();
+		Semi();
 	}
 }
 
@@ -380,6 +374,14 @@ void Epilog()
 }
 
 //--------------------------------------------------------------
+// Allocate Storage for a Static Variable
+
+void Allocate(char *Name, char *Val)
+{
+	printf("%s:%cDC %s\n", Name, TAB, Val);
+}
+
+//--------------------------------------------------------------
 // Post a Label To Output
 
 void PostLabel(char *L)
@@ -407,10 +409,10 @@ void Negate()
 //--------------------------------------------------------------
 // Load a Constant Value to Primary Register
 
-void LoadConst(int n)
+void LoadConst(char *Const)
 {
 	Emit("MOVE #");
-	printf("%d,D0\n", n);
+	printf("%s,D0\n", Const);
 }
 
 //--------------------------------------------------------------
@@ -474,9 +476,6 @@ void PopDiv()
 
 void Store(char *Name)
 {
-	if (!InTable(Name)) {
-		Undefined(Name);
-	}
 	snprintf(buf, MAX_BUF, "LEA %s(PC),A0", Name);
 	EmitLn(buf);
 	EmitLn("MOVE D0,(A0)");
@@ -492,19 +491,42 @@ void Undefined(char *n)
 }
 
 //--------------------------------------------------------------
+// Report an Duplicate Idenifier
+
+void Duplicate(char *n)
+{
+	snprintf(buf, MAX_BUF, "Duplicate Identifer %s", n);
+	Abort(buf);
+}
+
+//--------------------------------------------------------------
+// Check to Make Sure the Current Token is an Identifier
+
+void CheckIdent()
+{
+	if (Token != 'x') {
+		Expected("Identifier");
+	}
+}
+
+//--------------------------------------------------------------
 // Parse an Translate a Math Factor
 
 void Factor() {
-	if (Look == '(') {
-		Match("(");
+	if (Token == '(') {
+		Next();
 		BoolExpression();
-		Match(")");
-	} else if (isalpha(Look)) {
-		GetName();
-		LoadVar(Value);
+		MatchString(")");
 	} else {
-		LoadConst(GetNum());
-	}
+		if (Token == 'x') {
+			LoadVar(Value);
+		} else if (Token == '#') {
+			LoadConst(Value);
+		} else {
+			Expected("Math Factor");
+		}
+		Next();
+	} 
 }
 
 //--------------------------------------------------------------
@@ -514,7 +536,8 @@ void NegFactor()
 {
 	Match("-");
 	if (isdigit(Look)) {
-		LoadConst(-1 * GetNum());
+		;
+		//LoadConst(-1 * GetNum());
 	} else {
 		Factor();
 		Negate();
@@ -545,7 +568,7 @@ void FirstFactor()
 
 void Multiply()
 {
-	Match("*");
+	Next();
 	Factor();
 	PopMul();
 }
@@ -555,29 +578,9 @@ void Multiply()
 
 void Divide()
 {
-	Match("/");
+	Next();
 	Factor();
 	PopDiv();
-}
-
-//--------------------------------------------------------------
-// Common Code Used by Term and FirstTerm
-
-void Term1()
-{
-	NewLine();
-	while (IsMulop(Look)) {
-		Push();
-		switch (Look) {
-			case '*':
-				Multiply();
-				break;
-			case '/':
-				Divide();
-				break;
-		}
-		NewLine();
-	}
 }
 
 //--------------------------------------------------------------
@@ -586,16 +589,17 @@ void Term1()
 void Term()
 {
 	Factor();
-	Term1();
-}
-
-//--------------------------------------------------------------
-// Parse and Translate a Leading Term
-
-void FirstTerm()
-{
-	FirstFactor();
-	Term1();
+	while (IsMulop(Token)) {
+		Push();
+		switch (Token) {
+			case '*':
+				Multiply();
+				break;
+			case '/':
+				Divide();
+				break;
+		}
+	}
 }
 
 //--------------------------------------------------------------
@@ -603,7 +607,7 @@ void FirstTerm()
 
 void Add()
 {
-	Match("+");
+	Next();
 	Term();
 	PopAdd();
 }
@@ -613,7 +617,7 @@ void Add()
 
 void Subtract()
 {
-	Match("-");
+	Next();
 	Term();
 	PopSub();
 }
@@ -623,10 +627,14 @@ void Subtract()
 
 void Expression()
 {
-	NewLine();
-	FirstTerm();
-	while (IsAddop(Look)) {
-		switch (Look) {
+	if (IsAddop(Token)) {
+		Clear();
+	} else {
+		Term();
+	}
+	while (IsAddop(Token)) {
+		Push();
+		switch (Token) {
 			case '+':
 				Add();
 				break;
@@ -634,8 +642,25 @@ void Expression()
 				Subtract();
 				break;
 		}
-		NewLine();
 	}
+}
+
+//--------------------------------------------------------------
+// Get Another Expression and Compare
+
+void CompareExpression()
+{
+	Expression();
+	PopCompare();
+}
+
+//--------------------------------------------------------------
+// Get the Next Expression and Compare
+
+void NextExpression()
+{
+	Next();
+	CompareExpression();
 }
 
 //--------------------------------------------------------------
@@ -734,11 +759,9 @@ void SetLess()
 //--------------------------------------------------------------
 // Recognzie and Translate a Relational "Equals"
 
-void Equals()
+void Equal()
 {
-	Match("=");
-	Expression();
-	PopCompare();
+	NextExpression();
 	SetEqual();
 }
 
@@ -747,9 +770,7 @@ void Equals()
 
 void NotEqual()
 {
-	Match(">");
-	Expression();
-	PopCompare();
+	NextExpression();
 	SetNEqual();
 }
 
@@ -758,9 +779,7 @@ void NotEqual()
 
 void LessOrEqual()
 {
-	Match("=");
-	Expression();
-	PopCompare();
+	NextExpression();
 	SetLessOrEqual();
 }
 
@@ -769,8 +788,8 @@ void LessOrEqual()
 
 void Less()
 {
-	Match("<");
-	switch (Look) {
+	Next();
+	switch (Token) {
 		case '=':
 			LessOrEqual();
 			break;
@@ -778,8 +797,7 @@ void Less()
 			NotEqual();
 			break;
 		default:
-			Expression();
-			PopCompare();
+			CompareExpression();
 			SetLess();
 			break;
 	}
@@ -790,15 +808,12 @@ void Less()
 
 void Greater()
 {
-	Match(">");
-	if (Look == '=') {
-		Match("=");
-		Expression();
-		PopCompare();
+	Next();
+	if (Token == '=') {
+		NextExpression();
 		SetGreaterOrEqual();
 	} else {
-		Expression();
-		PopCompare();
+		CompareExpression();
 		SetGreater();
 	}
 }
@@ -809,14 +824,11 @@ void Greater()
 void Relation()
 {
 	Expression();
-	if (IsRelop(Look)) {
+	if (IsRelop(Token)) {
 		Push();
-		switch (Look) {
+		switch (Token) {
 			case '=':
-				Equals();
-				break;
-			case '#':
-				NotEqual();
+				Equal();
 				break;
 			case '<':
 				Less();
@@ -833,8 +845,8 @@ void Relation()
 
 void NotFactor()
 {
-	if (Look == '!') {
-		Match("!");
+	if (Token == '!') {
+		Next();
 		Relation();
 		NotIt();
 	} else {
@@ -847,14 +859,12 @@ void NotFactor()
 
 void BoolTerm()
 {
-	NewLine();
 	NotFactor();
-	while (Look == '&') {
+	while (Token == '&') {
 		Push();
-		Match("&");
+		Next();
 		NotFactor();
 		PopAnd();
-		NewLine();
 	}
 }
 
@@ -863,7 +873,7 @@ void BoolTerm()
 
 void BoolOr()
 {
-	Match("|");
+	Next();
 	BoolTerm();
 	PopOr();
 }
@@ -873,7 +883,7 @@ void BoolOr()
 
 void BoolXor()
 {
-	Match("~");
+	Next();
 	BoolTerm();
 	PopXor();
 }
@@ -883,11 +893,10 @@ void BoolXor()
 
 void BoolExpression()
 {
-	NewLine();
 	BoolTerm();
-	while (IsOrOp(Look)) {
+	while (IsOrOp(Token)) {
 		Push();
-		switch (Look) {
+		switch (Token) {
 			case '|':
 				BoolOr();
 				break;
@@ -895,7 +904,6 @@ void BoolExpression()
 				BoolXor();
 				break;
 		}
-		NewLine();
 	}
 }
 
@@ -936,12 +944,14 @@ void DoIf()
 {
 	char *L1;
 	char *L2;
+	Next();
 	BoolExpression();
 	L1 = NewLabel();
 	L2 = L1;
 	BranchFalse(L1);
 	Block();
 	if (Token == 'l') {
+		Next();
 		L2 = NewLabel();
 		Branch(L2);
 		PostLabel(L1);
@@ -958,6 +968,7 @@ void DoWhile()
 {
 	char *L1;
 	char *L2;
+	Next();
 	L1 = NewLabel();
 	L2 = NewLabel();
 	PostLabel(L1);
@@ -988,12 +999,44 @@ int Lookup(TabPtr T, char *s, int n)
 }
 		
 //--------------------------------------------------------------
+// Locate a Symbol in Table
+// Returns the index of the entry. Zero if not present.
+
+int Locate(Symbol N)
+{
+	return Lookup(&ST, N, NEntry);
+}
+
+//--------------------------------------------------------------
+// Check to See if an Identifier is in the Symbol Table
+// Report an error if it's not.
+
+void CheckTable(Symbol N)
+{
+	if (!InTable(N)) {
+		Undefined(N);
+	}
+}
+
+//--------------------------------------------------------------
+// Check the Symbol Table for Duplicate Idenifier
+// Report an error if identifier is already in table.
+
+void CheckDup(Symbol N)
+{
+	if (InTable(N)) {
+		Duplicate(N);
+	}
+}
+
+//--------------------------------------------------------------
 // Get an Identifier and Scan it for Keywords
 
 void Scan()
 {
-	GetName();
-	Token = KWcode[Lookup(&KWlist, Value, NKW)];
+	if (Token == 'x') {
+		Token = KWcode[Lookup(&KWlist, Value, NKW)];
+	}
 }
 
 //--------------------------------------------------------------
@@ -1005,6 +1048,7 @@ void MatchString(char *x)
 		snprintf(buf, MAX_BUF, "\"%s\"", x);
 		Expected(buf);
 	}
+	Next();
 }
 
 //--------------------------------------------------------------
@@ -1028,7 +1072,7 @@ void SetGreaterOrEqual()
 //--------------------------------------------------------------
 // Read Variable to Primary Register
 
-void ReadVar()
+void ReadIt()
 {
 	EmitLn("BSR READ");
 	Store(Value);
@@ -1037,9 +1081,20 @@ void ReadVar()
 //--------------------------------------------------------------
 // Write Variable to Primary Register
 
-void WriteVar()
+void WriteIt()
 {
 	EmitLn("BSR WRITE");
+}
+
+//--------------------------------------------------------------
+// Read a Single Variable
+
+void ReadVar()
+{
+	CheckIdent();
+	CheckTable(Value);
+	ReadIt(Value);
+	Next();
 }
 
 //--------------------------------------------------------------
@@ -1047,15 +1102,14 @@ void WriteVar()
 
 void DoRead()
 {
-	Match("(");
-	GetName();
+	Next();
+	MatchString("(");
 	ReadVar();
-	while (Look == ',') {
-		Match(",");
-		GetName();
+	while (Token == ',') {
+		Next();
 		ReadVar();
 	}
-	Match(")");
+	MatchString(")");
 }
 
 //--------------------------------------------------------------
@@ -1063,14 +1117,35 @@ void DoRead()
 
 void DoWrite()
 {
-	Match("(");
+	Next();
+	MatchString("(");
 	Expression();
-	WriteVar();
-	while (Look == ',') {
-		Match(",");
+	WriteIt();
+	while (Token == ',') {
+		Next();
 		Expression();
-		WriteVar();
+		WriteIt();
 	}
-	Match(")");
+	MatchString(")");
 }
 
+//--------------------------------------------------------------
+// Match a Semicolon
+
+void Semi()
+{
+	if (Token == ';') {
+		Next();
+	}
+}
+
+//--------------------------------------------------------------
+// Skip A Comment Field
+
+void SkipComment()
+{
+	while (Look != '}') {
+		GetCharX();
+	}
+	GetCharX();
+}
