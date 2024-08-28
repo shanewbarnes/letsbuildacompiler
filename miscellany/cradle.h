@@ -29,6 +29,7 @@ typedef const SymTab *TabPtr;
 // Variable Declarations
 
 extern char Look;		// Lookahead Character
+extern char TempChar;
 extern char Token;		// Encoded Token
 extern char ValueArray[16];	// Unencoded Token
 extern char *Value;
@@ -47,12 +48,6 @@ extern char KWcode[NKW1];
 
 //--------------------------------------------------------------
 // Read New Character From Input Stream
-
-void GetCharX();
-
-//--------------------------------------------------------------
-// Get Character from Input Stream
-// Skip Any Comments
 
 void GetChar();
 

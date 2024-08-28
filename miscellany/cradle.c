@@ -18,6 +18,7 @@ const char CR = '\n';
 // Variable Definitions
 
 char Look;			// Lookahead Character
+char TempChar = ' ';
 char buf[MAX_BUF];
 char Token;			// Encoded Token
 char ValueArray[16];		// Unencoded Token
@@ -36,21 +37,9 @@ char KWcode[NKW1] = "xileweRWve";
 //--------------------------------------------------------------
 // Read New Character From Input Stream
 
-void GetCharX()
-{
-	Look = getchar();
-}
-
-//--------------------------------------------------------------
-// Get Character from Input Stream
-// Skip Any Comments
-
 void GetChar()
 {
-	GetCharX();
-	if (Look == '{') {
-		SkipComment();
-	}
+	Look = getchar();
 }
 
 //--------------------------------------------------------------
@@ -167,7 +156,7 @@ void Next()
 
 int IsWhite(char c)
 {
-	return c == ' ' || c == TAB || c == '\n';
+	return c == ' ' || c == TAB || c == '\n' || c == '{';
 }
 
 //--------------------------------------------------------------
@@ -176,7 +165,11 @@ int IsWhite(char c)
 void SkipWhite()
 {
 	while (IsWhite(Look)) {
-		GetChar();
+		if (Look == '{') {
+			SkipComment();
+		} else {
+			GetChar();
+		}
 	}
 }
 
@@ -1145,7 +1138,10 @@ void Semi()
 void SkipComment()
 {
 	while (Look != '}') {
-		GetCharX();
+		GetChar();
+		if (Look == '{') {
+			SkipComment();
+		}
 	}
-	GetCharX();
+	GetChar();
 }
