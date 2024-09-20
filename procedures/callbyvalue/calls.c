@@ -19,6 +19,7 @@ const char CR = '\n';
 
 char Look;		// Lookahead Character
 int NumParams;
+int Base;
 char buf[MAX_BUF];
 char ST[ALPHA_SIZE];
 int Params[ALPHA_SIZE];
@@ -390,17 +391,18 @@ void Decl()
 void DoProc()
 {
 	char N;
+	int k;
 	Match("p");
 	N = GetName();
-	FormalList();
-	Fin();
 	if (InTable(N)) {
 		Duplicate(N);
 	}
 	ST[N - 'A'] = 'p';
-	PostLabel(N);
+	FormalList();
+	k = LocDecls();
+	ProcProlog(N, k);
 	BeginBlock();
-	Return();
+	ProcEpilog();
 	ClearParams();
 }
 
@@ -493,6 +495,10 @@ void FormalList()
 		}
 	}
 	Match(")");
+	Fin();
+	Base = NumParams;
+	NumParams += 4;
+	Fin();
 }
 
 //--------------------------------------------------------------
@@ -508,8 +514,8 @@ void FormalParam()
 
 void Param()
 {
-	snprintf(buf, MAX_BUF, "PEA %c(PC)", GetName());
-	EmitLn(buf);
+	Expression();
+	Push();
 }
 
 //--------------------------------------------------------------
@@ -530,7 +536,7 @@ int ParamList()
 		}
 	}
 	Match(")");
-	return 4 * N;
+	return 2 * N;
 }
 
 //--------------------------------------------------------------
@@ -590,10 +596,9 @@ void AddParam(char Name)
 void LoadParam(int N)
 {
 	int Offset;
-	Offset = 8 + 4 * (NumParams - N);
-	Emit("MOVE.L ");
-	printf("%d(A6),A0\n", Offset);
-	EmitLn("MOVE (A0),D0");
+	Offset = 8 + 2 * (Base - N);
+	Emit("MOVE ");
+	printf("%d(A6),D0\n", Offset);
 }
 
 //--------------------------------------------------------------
@@ -602,10 +607,9 @@ void LoadParam(int N)
 void StoreParam(int N)
 {
 	int Offset;
-	Offset = 8 + 4 * (NumParams - N);
-	Emit("MOVE.L ");
-	printf("%d(A6),A0\n", Offset);
-	EmitLn("MOVE D0,(A0)");
+	Offset = 8 + 2 * (Base - N);
+	Emit("MOVE D0,");
+	printf("%d(A6)\n", Offset);
 }
 
 //--------------------------------------------------------------
@@ -630,10 +634,11 @@ void CleanStack(int N)
 //--------------------------------------------------------------
 // Write the Prolog for a Procedure
 
-void ProcProlog(char N)
+void ProcProlog(char N, int k)
 {
 	PostLabel(N);
-	EmitLn("LINK A6,#0");
+	Emit("LINK A6,#");
+	printf("%d\n", -2 * k);
 }
 
 //--------------------------------------------------------------
@@ -645,3 +650,27 @@ void ProcEpilog()
 	EmitLn("RTS");
 }
 
+//--------------------------------------------------------------
+// Parse and Translate a Local Data Declaration
+
+void LocDecl()
+{
+	char Name;
+	Match("v");
+	AddParam(GetName());
+	Fin();
+}
+
+//--------------------------------------------------------------
+// Parse and Translate a Local Declaration
+
+int LocDecls()
+{
+	int n;
+	n = 0;
+	while (Look == 'v') {
+		LocDecl();
+		n++;
+	}
+	return n;
+}

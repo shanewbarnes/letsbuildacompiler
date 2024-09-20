@@ -279,12 +279,22 @@ void CleanStack(int N);
 //--------------------------------------------------------------
 // Write the Prolog for a Procedure
 
-void ProcProlog(char);
+void ProcProlog(char, int);
 
 //--------------------------------------------------------------
 // Write the Epilog for a Procedure
 
 void ProcEpilog();
+
+//--------------------------------------------------------------
+// Parse and Translate a Local Data Declaration
+
+void LocDecl();
+
+//--------------------------------------------------------------
+// Parse and Translate a Local Declaration
+
+int LocDecls();
 
 #endif
 
